@@ -1,0 +1,9 @@
+C:\My Storage\My Projects\- Longterm Projects\FishS2Sharp\FishS2Sharp\bin\x64\Debug\netstandard2.1\FishS2Sharp.deps.json
+C:\My Storage\My Projects\- Longterm Projects\FishS2Sharp\FishS2Sharp\bin\x64\Debug\netstandard2.1\FishS2Sharp.dll
+C:\My Storage\My Projects\- Longterm Projects\FishS2Sharp\FishS2Sharp\bin\x64\Debug\netstandard2.1\FishS2Sharp.pdb
+C:\My Storage\My Projects\- Longterm Projects\FishS2Sharp\FishS2Sharp\obj\x64\Debug\netstandard2.1\FishS2Sharp.GeneratedMSBuildEditorConfig.editorconfig
+C:\My Storage\My Projects\- Longterm Projects\FishS2Sharp\FishS2Sharp\obj\x64\Debug\netstandard2.1\FishS2Sharp.AssemblyInfoInputs.cache
+C:\My Storage\My Projects\- Longterm Projects\FishS2Sharp\FishS2Sharp\obj\x64\Debug\netstandard2.1\FishS2Sharp.AssemblyInfo.cs
+C:\My Storage\My Projects\- Longterm Projects\FishS2Sharp\FishS2Sharp\obj\x64\Debug\netstandard2.1\FishS2Sharp.csproj.CoreCompileInputs.cache
+C:\My Storage\My Projects\- Longterm Projects\FishS2Sharp\FishS2Sharp\obj\x64\Debug\netstandard2.1\FishS2Sharp.dll
+C:\My Storage\My Projects\- Longterm Projects\FishS2Sharp\FishS2Sharp\obj\x64\Debug\netstandard2.1\FishS2Sharp.pdb
