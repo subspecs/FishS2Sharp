@@ -225,7 +225,7 @@
         //Public Methods:
         public void Dispose()
         {
-            if(!IsDisposed)
+            if (!IsDisposed)
             {
                 Native.ReleaseS2GenerateParams(GenerateParams);
                 IsDisposed = true;
@@ -283,7 +283,7 @@
 
             Pipeline = Native.AllocS2Pipeline();
             Native.SyncS2TokenizerConfigFromS2Model(_Model.ModelHandle, _Tokenizer.TokenizerHandle);
-            if(Native.InitializeS2Pipeline(Pipeline, _Tokenizer.TokenizerHandle, _Model.ModelHandle, _AudioCodec.AudioCodecHandle) != 1)
+            if (Native.InitializeS2Pipeline(Pipeline, _Tokenizer.TokenizerHandle, _Model.ModelHandle, _AudioCodec.AudioCodecHandle) != 1)
             {
                 throw new System.Exception("Failed to initialize pipeline.");
             }
@@ -296,11 +296,11 @@
         //Public Methods:
         public void Dispose()
         {
-            if(!IsDispose)
+            if (!IsDispose)
             {
                 Native.ReleaseS2AudioPromptCodes(DefaultVoiceReference.Reference);
                 var Enum = AudioReferences.GetEnumerator();
-                while(Enum.MoveNext())
+                while (Enum.MoveNext())
                 {
                     Native.ReleaseS2AudioPromptCodes(Enum.Current.Value.Reference);
                 }
@@ -319,11 +319,11 @@
         public bool RegisterVoiceReference(string ReferenceName, string Mp3WavFileName, string AudioTranscript, out AudioReference Reference)
         {
             AudioReference ARef = new AudioReference(ReferenceName, AudioTranscript, Native.AllocS2AudioPromptCodes(), 0);
-            if(Native.InitializeAudioPromptCodes(Pipeline, 4, Mp3WavFileName, ARef.Reference, &ARef.TPrompt) != 1)
+            if (Native.InitializeAudioPromptCodes(Pipeline, System.Environment.ProcessorCount, Mp3WavFileName, ARef.Reference, &ARef.TPrompt) != 1)
             {
                 throw new System.Exception("Failed to register reference voice.");
             }
-            if(!AudioReferences.TryAdd(ReferenceName, ARef))
+            if (!AudioReferences.TryAdd(ReferenceName, ARef))
             {
                 Reference = default;
                 Native.ReleaseS2AudioPromptCodes(ARef.Reference);
@@ -339,7 +339,7 @@
 
         public void Synthesize(string Text, string OutputWavFilename, FishAudioParameters Parameters, AudioReference VoiceReference = default)
         {
-            if(VoiceReference.Name == null) { VoiceReference = DefaultVoiceReference; }
+            if (VoiceReference.Name == null) { VoiceReference = DefaultVoiceReference; }
 
             int OutputBufferLength = 0, ErrorCode = Native.S2Synthesize(Pipeline, Parameters.GenerateParams, AudioBuffer.AudioBufferHandle, VoiceReference.Reference, &VoiceReference.TPrompt, null, VoiceReference.Transcript, Text, OutputWavFilename, &OutputBufferLength);
 
@@ -362,7 +362,27 @@
 
             switch (ErrorCode)
             {
-                case 0: { throw new System.Exception("Failed to synthesize pipeline because the pipeline is not initialized."); } 
+                case 0: { throw new System.Exception("Failed to synthesize pipeline because the pipeline is not initialized."); }
+                case -1: { System.Console.WriteLine("[Pipeline Warning]: encode failed, running without reference audio."); } break;
+                case -2: { System.Console.WriteLine("[Pipeline Warning]: load_audio failed, running without reference audio."); } break;
+                case -3: { throw new System.Exception("[Pipeline Error]: init_kv_cache failed."); }
+                case -4: { throw new System.Exception("[Pipeline Error]: generation produced no frames."); }
+                case -5: { throw new System.Exception("[Pipeline Error]: decode failed."); }
+                case -6: { throw new System.Exception("[Pipeline Error]: save_audio failed."); }
+            }
+
+            RawAudioOutput = AudioBuffer.GetRawAudioBuffer();
+            return OutputBufferLength;
+        }
+        public int Synthesize(string Text, string OutputWavFilename, float* RawAudioOutput, FishAudioParameters Parameters, AudioReference VoiceReference = default)
+        {
+            if (VoiceReference.Name == null) { VoiceReference = DefaultVoiceReference; }
+
+            int OutputBufferLength = 0, ErrorCode = Native.S2Synthesize(Pipeline, Parameters.GenerateParams, AudioBuffer.AudioBufferHandle, VoiceReference.Reference, &VoiceReference.TPrompt, null, VoiceReference.Transcript, Text, OutputWavFilename, &OutputBufferLength);
+
+            switch (ErrorCode)
+            {
+                case 0: { throw new System.Exception("Failed to synthesize pipeline because the pipeline is not initialized."); }
                 case -1: { System.Console.WriteLine("[Pipeline Warning]: encode failed, running without reference audio."); } break;
                 case -2: { System.Console.WriteLine("[Pipeline Warning]: load_audio failed, running without reference audio."); } break;
                 case -3: { throw new System.Exception("[Pipeline Error]: init_kv_cache failed."); }

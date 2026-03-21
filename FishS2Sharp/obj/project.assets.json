@@ -14,11 +14,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\My Storage\\My Projects\\- Longterm Projects\\FishS2Sharp\\FishS2Sharp\\FishS2Sharp.csproj",
+      "projectUniqueName": "C:\\My Storage\\My Projects\\GIT\\FishS2Sharp\\FishS2Sharp\\FishS2Sharp\\FishS2Sharp.csproj",
       "projectName": "FishS2Sharp",
-      "projectPath": "C:\\My Storage\\My Projects\\- Longterm Projects\\FishS2Sharp\\FishS2Sharp\\FishS2Sharp.csproj",
+      "projectPath": "C:\\My Storage\\My Projects\\GIT\\FishS2Sharp\\FishS2Sharp\\FishS2Sharp\\FishS2Sharp.csproj",
       "packagesPath": "C:\\Users\\SubSpecs\\.nuget\\packages\\",
-      "outputPath": "C:\\My Storage\\My Projects\\- Longterm Projects\\FishS2Sharp\\FishS2Sharp\\obj\\",
+      "outputPath": "C:\\My Storage\\My Projects\\GIT\\FishS2Sharp\\FishS2Sharp\\FishS2Sharp\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
