@@ -263,7 +263,7 @@
             _AudioCodec = new FishAudioCodec(_Model.ModelPath, GPUBackendTypes.CPU, -1); //For now.
             _Tokenizer = Tokenizer;
             AudioBuffer = new FishAudioBuffer();
-            DefaultVoiceReference.Reference = Native.AllocS2AudioPromptCodes();
+            DefaultVoiceReference.Reference = Native.AllocS2AudioPromptCodes(); DefaultVoiceReference.Transcript = "";
             AudioReferences = new System.Collections.Generic.Dictionary<string, AudioReference>(2);
 
             Pipeline = Native.AllocS2Pipeline();
@@ -276,9 +276,10 @@
         public FishS2Client(string ModelPath, string TokenizerPath, GPUBackendTypes BackendType, int DeviceID = 0)
         {
             _Model = new FishModel(ModelPath, BackendType, DeviceID);
-            _AudioCodec = new FishAudioCodec(ModelPath, GPUBackendTypes.CPU, -1); //For now.
+            _AudioCodec = new FishAudioCodec(ModelPath, GPUBackendTypes.Cuda, 0); //For now.
             _Tokenizer = new FishTokenizer(TokenizerPath);
             AudioBuffer = new FishAudioBuffer();
+            DefaultVoiceReference.Reference = Native.AllocS2AudioPromptCodes(); DefaultVoiceReference.Transcript = "";
             AudioReferences = new System.Collections.Generic.Dictionary<string, AudioReference>(2);
 
             Pipeline = Native.AllocS2Pipeline();
@@ -294,7 +295,7 @@
         }
 
         //Public Methods:
-        public void Dispose()
+        public void Dispose(bool DisposeModel = true, bool DisposeTokenizer = true)
         {
             if (!IsDispose)
             {
@@ -307,11 +308,11 @@
                 Enum.Dispose();
                 AudioReferences.Clear();
 
+                Native.ReleaseS2Pipeline(Pipeline);
                 AudioBuffer.Dispose();
                 _AudioCodec.Dispose();
-                _Tokenizer.Dispose();
-                _Model.Dispose();
-                Native.ReleaseS2Pipeline(Pipeline);
+                if (DisposeTokenizer) { _Tokenizer.Dispose(); }
+                if (DisposeModel) { _Model.Dispose(); }
                 IsDispose = true;
             }
         }
