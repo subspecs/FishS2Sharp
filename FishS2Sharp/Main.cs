@@ -276,7 +276,7 @@
         public FishS2Client(string ModelPath, string TokenizerPath, GPUBackendTypes BackendType, int DeviceID = 0)
         {
             _Model = new FishModel(ModelPath, BackendType, DeviceID);
-            _AudioCodec = new FishAudioCodec(ModelPath, GPUBackendTypes.Cuda, 0); //For now.
+            _AudioCodec = new FishAudioCodec(ModelPath, GPUBackendTypes.CPU, -1); //For now.
             _Tokenizer = new FishTokenizer(TokenizerPath);
             AudioBuffer = new FishAudioBuffer();
             DefaultVoiceReference.Reference = Native.AllocS2AudioPromptCodes(); DefaultVoiceReference.Transcript = "";
