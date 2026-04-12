@@ -3,6 +3,7 @@
     public enum GPUBackendTypes : int
     {
         CPU = -1,
+
         Vulkan = 0,
         Cuda = 1,
         Metal = 2,
@@ -10,7 +11,7 @@
 
     internal static class Native
     {
-        const string DllPath = @"C:\My Storage\My Projects\GIT\s2.cpp_build\RelWithDebInfo\s2.dll";
+        const string DllPath = @"s2.dll"; //C:\My Storage\My Projects\GIT\s2.cpp_build\RelWithDebInfo\
 
         internal unsafe delegate int S2StreamingWriteCallback(byte* data, int size, void* user_data);
         internal unsafe delegate void S2StreamingDoneCallback(void* user_data);
@@ -51,7 +52,6 @@
                 this.low_latency = low_latency; this.segment_sentences = segment_sentences; this.sentence_pause_ms = sentence_pause_ms; this.segment_max_chars = segment_max_chars; this.voice = voice; this.voice_dir = voice_dir;
             }
         };
-
 
         [System.Runtime.InteropServices.DllImport(DllPath)]
         public static unsafe extern void* AllocS2Pipeline();
