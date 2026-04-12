@@ -1,24 +1,75 @@
 ﻿namespace FishS2Sharp
 {
-    public enum GPUBackendTypes
+    public enum GPUBackendTypes : int
     {
         CPU = -1,
         Vulkan = 0,
-        Cuda = 1
+        Cuda = 1,
+        Metal = 2,
     }
 
     internal static class Native
     {
-        const string DllPath = @"s2.dll";
+        const string DllPath = @"C:\My Storage\My Projects\GIT\s2.cpp_build\RelWithDebInfo\s2.dll";
+
+        internal unsafe delegate int S2StreamingWriteCallback(byte* data, int size, void* user_data);
+        internal unsafe delegate void S2StreamingDoneCallback(void* user_data);
+        internal unsafe delegate void S2StreamingErrorCallback(sbyte* message, void* user_data);
+        internal unsafe delegate int S2StreamingCancelCallback(void* user_data);
+
+        internal unsafe struct S2StreamingCallbacks
+        {
+            internal S2StreamingWriteCallback on_wav_chunk;
+            internal S2StreamingDoneCallback on_done;
+            internal S2StreamingErrorCallback on_error;
+            internal S2StreamingCancelCallback is_cancelled;
+            internal void* user_data;
+
+            //Constructor:
+            public S2StreamingCallbacks(S2StreamingWriteCallback on_wav_chunk = null, S2StreamingDoneCallback on_done = null, S2StreamingErrorCallback on_error = null, S2StreamingCancelCallback is_cancelled = null, void* user_data = null)
+            {
+                this.on_wav_chunk = on_wav_chunk; this.on_done = on_done; this.on_error = on_error; this.is_cancelled = is_cancelled; this.user_data = user_data;
+            }
+        };
+
+        internal unsafe struct S2StreamingParams
+        {
+            internal int stream_decode_stride_frames;
+            internal int stream_holdback_frames;
+            internal int codec_decode_context_frames;
+            internal int low_latency;
+            internal int segment_sentences;
+            internal int sentence_pause_ms;
+            internal int segment_max_chars;
+            internal sbyte* voice;
+            internal sbyte* voice_dir;
+
+            //Constructor:
+            public S2StreamingParams(int stream_decode_stride_frames = 0, int stream_holdback_frames = -1, int codec_decode_context_frames = -1, int low_latency = 0, int segment_sentences = 0, int sentence_pause_ms = 180, int segment_max_chars = 0, sbyte* voice = null, sbyte* voice_dir = null)
+            {
+                this.stream_decode_stride_frames = stream_decode_stride_frames; this.stream_holdback_frames = stream_holdback_frames; this.codec_decode_context_frames = codec_decode_context_frames; 
+                this.low_latency = low_latency; this.segment_sentences = segment_sentences; this.sentence_pause_ms = sentence_pause_ms; this.segment_max_chars = segment_max_chars; this.voice = voice; this.voice_dir = voice_dir;
+            }
+        };
+
 
         [System.Runtime.InteropServices.DllImport(DllPath)]
         public static unsafe extern void* AllocS2Pipeline();
         [System.Runtime.InteropServices.DllImport(DllPath)]
         public static unsafe extern void ReleaseS2Pipeline(void* Pipeline);
+
+        [System.Runtime.InteropServices.DllImport(DllPath)]
+        public static unsafe extern void SetS2LogLevel(int LogLevel);
+        [System.Runtime.InteropServices.DllImport(DllPath)]
+        public static unsafe extern int GetS2LogLevel();
+
         [System.Runtime.InteropServices.DllImport(DllPath)]
         public static unsafe extern void SyncS2TokenizerConfigFromS2Model(void* Model, void* Tokenizer);
+
         [System.Runtime.InteropServices.DllImport(DllPath)]
         public static unsafe extern int InitializeS2Pipeline(void* Pipeline, void* Tokenizer, void* Model, void* AudioCodec);
+        [System.Runtime.InteropServices.DllImport(DllPath)]
+        public static unsafe extern int InitializeS2PipelineFromFiles(void* Pipeline, string gguf_path, string tokenizer_path, int gpu_device, GPUBackendTypes backend_type, int n_gpu_layers, int codec_follow_backend);
 
         [System.Runtime.InteropServices.DllImport(DllPath)]
         public static unsafe extern void* AllocS2GenerateParams();
@@ -32,7 +83,10 @@
         [System.Runtime.InteropServices.DllImport(DllPath)]
         public static unsafe extern void ReleaseS2Model(void* Model);
         [System.Runtime.InteropServices.DllImport(DllPath)]
-        public static unsafe extern int InitializeS2Model(void* Model, string gguf_path, int gpu_device, int backend_type);
+        public static unsafe extern int InitializeS2Model(void* Model, string gguf_path, int gpu_device, GPUBackendTypes backend_type);
+        [System.Runtime.InteropServices.DllImport(DllPath)]
+        public static unsafe extern int InitializeS2ModelWithGpuLayers(void* Model, string gguf_path, int gpu_device, int backend_type, int n_gpu_layers);
+
 
         [System.Runtime.InteropServices.DllImport(DllPath)]
         public static unsafe extern void* AllocS2Tokenizer();
@@ -46,7 +100,7 @@
         [System.Runtime.InteropServices.DllImport(DllPath)]
         public static unsafe extern void ReleaseS2AudioCodec(void* AudioCodec);
         [System.Runtime.InteropServices.DllImport(DllPath)]
-        public static unsafe extern int InitializeS2AudioCodec(void* AudioCodec, string gguf_path, int gpu_device, int backend_type);
+        public static unsafe extern int InitializeS2AudioCodec(void* AudioCodec, string gguf_path, int gpu_device, GPUBackendTypes backend_type);
 
         [System.Runtime.InteropServices.DllImport(DllPath)]
         public static unsafe extern void* AllocS2AudioPromptCodes();
@@ -64,6 +118,10 @@
 
         [System.Runtime.InteropServices.DllImport(DllPath)]
         public static unsafe extern int S2Synthesize(void* Pipeline, void* GenerateParams, void* AudioBuffer, void* ReferenceAudioPromptCodes, int* ReferenceAudioTPrompt, string ReferenceAudioPath = null, string ReferenceAudioTranscript = "", string TextToInfer = "", string OutputAudioPath = null, int* AudioBufferOutputLength = null);
+        [System.Runtime.InteropServices.DllImport(DllPath)]
+        public static unsafe extern int S2SynthesizeStreaming(void* Pipeline, void* GenerateParams, S2StreamingCallbacks* StreamingCallbacks, void* ReferenceAudioPromptCodes, int* ReferenceAudioTPrompt, string ReferenceAudioPath, string ReferenceAudioTranscript, string TextToInfer, int StreamDecodeStrideFrames);
+        [System.Runtime.InteropServices.DllImport(DllPath)]
+        public static unsafe extern int S2SynthesizeStreaming(void* Pipeline, void* GenerateParams, S2StreamingCallbacks* StreamingCallbacks, void* ReferenceAudioPromptCodes, int* ReferenceAudioTPrompt, string ReferenceAudioPath, string ReferenceAudioTranscript, string TextToInfer, S2StreamingParams* StreamingParams);
     }
 
     public unsafe class FishModel
@@ -85,7 +143,7 @@
             _ModelPath = ModelPath; _BackendType = BackendType; _DeviceID = (BackendType == GPUBackendTypes.CPU ? -1 : DeviceID);
 
             ModelHandle = Native.AllocS2Model();
-            if (Native.InitializeS2Model(ModelHandle, ModelPath, _DeviceID, (int)BackendType) != 1)
+            if (Native.InitializeS2Model(ModelHandle, ModelPath, _DeviceID, BackendType) != 1)
             {
                 throw new System.Exception("Failed to initialize model with " + BackendType.ToString() + " support.");
             }
@@ -155,9 +213,8 @@
         public FishAudioCodec(string ModelPath, GPUBackendTypes BackendType, int DeviceID = 0)
         {
             _ModelPath = ModelPath; _BackendType = BackendType; _DeviceID = (BackendType == GPUBackendTypes.CPU ? -1 : DeviceID);
-
             AudioCodecHandle = Native.AllocS2AudioCodec();
-            if (Native.InitializeS2AudioCodec(AudioCodecHandle, ModelPath, _DeviceID, (int)BackendType) != 1)
+            if (Native.InitializeS2AudioCodec(AudioCodecHandle, ModelPath, _DeviceID, BackendType) != 1)
             {
                 throw new System.Exception("Failed to initialize AudioCodec with " + BackendType.ToString() + " support.");
             }
@@ -260,7 +317,7 @@
         public FishS2Client(FishModel Model, FishTokenizer Tokenizer)
         {
             _Model = Model;
-            _AudioCodec = new FishAudioCodec(_Model.ModelPath, GPUBackendTypes.CPU, -1); //For now.
+            _AudioCodec = new FishAudioCodec(_Model.ModelPath, GPUBackendTypes.CPU, 0); //For now.
             _Tokenizer = Tokenizer;
             AudioBuffer = new FishAudioBuffer();
             DefaultVoiceReference.Reference = Native.AllocS2AudioPromptCodes(); DefaultVoiceReference.Transcript = "";
@@ -276,7 +333,7 @@
         public FishS2Client(string ModelPath, string TokenizerPath, GPUBackendTypes BackendType, int DeviceID = 0)
         {
             _Model = new FishModel(ModelPath, BackendType, DeviceID);
-            _AudioCodec = new FishAudioCodec(ModelPath, GPUBackendTypes.CPU, -1); //For now.
+            _AudioCodec = new FishAudioCodec(ModelPath, GPUBackendTypes.CPU, 0); //For now.
             _Tokenizer = new FishTokenizer(TokenizerPath);
             AudioBuffer = new FishAudioBuffer();
             DefaultVoiceReference.Reference = Native.AllocS2AudioPromptCodes(); DefaultVoiceReference.Transcript = "";
