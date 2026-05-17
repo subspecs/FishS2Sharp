@@ -11,7 +11,8 @@
 
     internal static class Native
     {
-        const string DllPath = @"C:\My Storage\My Projects\GIT\s2.cpp_build\RelWithDebInfo\s2.dll";
+        //const string DllPath = @"C:\My Storage\My Projects\GIT\s2.cpp_build\RelWithDebInfo\s2.dll";
+        const string DllPath = @"s2.dll";
 
         internal unsafe delegate int S2StreamingWriteCallback(byte* data, int size, void* user_data);
         internal unsafe delegate void S2StreamingDoneCallback(void* user_data);
