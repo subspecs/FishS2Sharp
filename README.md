@@ -20,13 +20,13 @@ GGUF files are available at [rodrigomt/s2-pro-gguf](https://huggingface.co/rodri
 
 | File | Size | Notes |
 |---|---|---|
-| `s2-pro-f16.gguf` | 9.9 GB | Full precision — reference quality |
-| `s2-pro-q8_0.gguf` | 5.6 GB | Near-lossless — model weights use ~5 GB VRAM after the duplicate-load fix; full runtime usage is higher |
-| `s2-pro-q6_k.gguf` | 4.5 GB | Good quality/size balance — recommended for 6+ GB VRAM |
-| `s2-pro-q5_k_m.gguf` | 4.0 GB | Smaller with still-good quality |
-| `s2-pro-q4_k_m.gguf` | 3.6 GB | Best compact variant so far in quick RU validation |
-| `s2-pro-q3_k.gguf` | 3.0 GB | Usable, but starts stretching short words |
-| `s2-pro-q2_k.gguf` | 2.6 GB | Lowest-size experimental variant |
+| `s2-pro-f16.gguf` | 9.9 GB | Full precision — reference quality — VRAM Usage: ~11.5GB |
+| `s2-pro-q8_0.gguf` | 5.6 GB | Near-lossless — VRAM Usage: ~6.7GB |
+| `s2-pro-q6_k.gguf` | 4.5 GB | Good quality/size balance — VRAM Usage: ~5.5GB |
+| `s2-pro-q5_k_m.gguf` | 4.0 GB | Smaller with still-good quality — VRAM Usage: ~5.0GB |
+| `s2-pro-q4_k_m.gguf` | 3.6 GB | Best compact variant — VRAM Usage: ~4.5GB |
+| `s2-pro-q3_k.gguf` | 3.0 GB | Usable, but starts stretching short words — VRAM Usage: ~3.9GB |
+| `s2-pro-q2_k.gguf` | 2.6 GB | Lowest-size experimental variant — VRAM Usage: ~3.3GB |
 
 All variants include both the transformer weights and the audio codec in a single file.
 The quantized variants above were regenerated with the codec tensors (`c.*`) kept in `F16`, so only the AR transformer is quantized.
