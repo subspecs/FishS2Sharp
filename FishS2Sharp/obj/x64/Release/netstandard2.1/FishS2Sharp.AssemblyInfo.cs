@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("FishS2Sharp")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+5afe90b6730b59aeee2c884009a02c50934e6ec6")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+813f02c2cd0711e8168f2fb1c8fa2af506e85fa7")]
 [assembly: System.Reflection.AssemblyProductAttribute("FishS2Sharp")]
 [assembly: System.Reflection.AssemblyTitleAttribute("FishS2Sharp")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

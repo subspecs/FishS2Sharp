@@ -11,6 +11,8 @@
 
     internal static class Native
     {
+        static Native() { SetS2LogLevel(0); }
+
         //const string DllPath = @"C:\My Storage\My Projects\GIT\s2.cpp_build\RelWithDebInfo\s2.dll";
         const string DllPath = @"s2.dll";
 
