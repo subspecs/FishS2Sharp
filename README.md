@@ -4,9 +4,9 @@ A proper C# wrapper for the **Fish Audio S2 Pro** repo [s2.cpp](https://github.c
 What features are currently implemented:
 - Ability to transform text to voice using either ***only using a text input*** and/or combined ***with an reference audio(voice sample) file***.
 - Ability to save the resulting audio to ***file*** and/or retreive it ***as an array of float samples*** in code(mono).
-- The library is modular, meaning you can load the model/tokenizer separately, which allows you to re-use the model/tokenizer in other FishS2Client instances without reloading them again.
-- Audio references are binded and stored in FishS2Client instances, and they are processed at the time you create/add/register them with RegisterVoiceReference(). This allows to process the reference voice samples for the model ***ONLY ONCE*** and re-use it without having to re-load it for every prompt.
-- CUDA, Vulkan and Metal support, as well as CPU fallback. (As long you have **ggml-cuda.dll**/**ggml-vulkan.dll**/**ggml-metal.dll** in the same folder as this library and the s2.dll)
+- The library is modular, meaning you can load the model/clients separately, which allows you to re-use the model in other FishS2Client instances without reloading them again.
+- Audio references are binded and stored in FishAudioVoiceReference instances, and they are processed at the time you create/add/register them with RegisterVoiceReference(). This allows to process the reference voice samples for the model ***ONLY ONCE*** and re-use it without having to re-load it for every prompt. (NOTE: You can only use/synth. processed voice samples for the model you used to process them with.)
+- CUDA, Vulkan and Metal support, as well as CPU fallback. (As long you have **ggml-cuda.dll**/**ggml-vulkan.dll**/**ggml-metal.dll** in the same folder as this library and the **s2.dll**)
 - This library is compiled against the netstandard 2.1, that means you can use it both in .NET 5+ applications and the Unity game engine, allowing this to be used for games as well.
 
 You still have to build [s2.dll](https://github.com/rodrigomatta/s2.cpp) manually along with the ggml.
