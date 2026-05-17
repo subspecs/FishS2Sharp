@@ -11,7 +11,7 @@
 
     internal static class Native
     {
-        const string DllPath = @"s2.dll"; //C:\My Storage\My Projects\GIT\s2.cpp_build\RelWithDebInfo\
+        const string DllPath = @"C:\My Storage\My Projects\GIT\s2.cpp_build\RelWithDebInfo\s2.dll";
 
         internal unsafe delegate int S2StreamingWriteCallback(byte* data, int size, void* user_data);
         internal unsafe delegate void S2StreamingDoneCallback(void* user_data);
@@ -101,6 +101,8 @@
         public static unsafe extern void ReleaseS2AudioCodec(void* AudioCodec);
         [System.Runtime.InteropServices.DllImport(DllPath)]
         public static unsafe extern int InitializeS2AudioCodec(void* AudioCodec, string gguf_path, int gpu_device, GPUBackendTypes backend_type);
+        [System.Runtime.InteropServices.DllImport(DllPath)]
+        public static unsafe extern int InitializeS2AudioCodecModelShared(void* Model, void* AudioCodec, string gguf_path, int gpu_device, GPUBackendTypes backend_type);
 
         [System.Runtime.InteropServices.DllImport(DllPath)]
         public static unsafe extern void* AllocS2AudioPromptCodes();
@@ -124,28 +126,46 @@
         public static unsafe extern int S2SynthesizeStreaming(void* Pipeline, void* GenerateParams, S2StreamingCallbacks* StreamingCallbacks, void* ReferenceAudioPromptCodes, int* ReferenceAudioTPrompt, string ReferenceAudioPath, string ReferenceAudioTranscript, string TextToInfer, S2StreamingParams* StreamingParams);
     }
 
-    public unsafe class FishModel
+    public class FishModel
     {
         public int DeviceID { get { return _DeviceID; } }
         public GPUBackendTypes Backend { get { return _BackendType; } }
         public string ModelPath { get { return _ModelPath; } }
+        public string TokenizerPath { get { return _TokenizerPath; } }
 
-        internal long _ModelID;
         private int _DeviceID;
         private bool IsDisposed;
-        private string _ModelPath;
-        internal void* ModelHandle;
+        internal string _ModelPath, _TokenizerPath;
+        internal unsafe void* ModelHandle, TokenizerHandle, AudioCodecHandle, DummyPipeline;
         private GPUBackendTypes _BackendType;
 
         //Constructors:
-        public FishModel(string ModelPath, GPUBackendTypes BackendType, int DeviceID = 0)
+        public FishModel(string ModelPath, string TokenizerPath, GPUBackendTypes BackendType, int DeviceID = 0)
         {
-            _ModelPath = ModelPath; _BackendType = BackendType; _DeviceID = (BackendType == GPUBackendTypes.CPU ? -1 : DeviceID);
+            _ModelPath = ModelPath; _TokenizerPath = TokenizerPath; _BackendType = BackendType; _DeviceID = ((int)BackendType < 0 ? -1 : DeviceID);
 
-            ModelHandle = Native.AllocS2Model();
-            if (Native.InitializeS2Model(ModelHandle, ModelPath, _DeviceID, BackendType) != 1)
+            unsafe
             {
-                throw new System.Exception("Failed to initialize model with " + BackendType.ToString() + " support.");
+                ModelHandle = Native.AllocS2Model();
+                AudioCodecHandle = Native.AllocS2AudioCodec();
+
+                if (Native.InitializeS2AudioCodecModelShared(ModelHandle, AudioCodecHandle, ModelPath, _DeviceID, BackendType) != 1)
+                {
+                    throw new System.Exception("Failed to initialize model/audio codec with " + BackendType.ToString() + " support.");
+                }
+
+                TokenizerHandle = Native.AllocS2Tokenizer();
+                if (Native.InitializeS2Tokenizer(TokenizerHandle, _TokenizerPath) != 1)
+                {
+                    throw new System.Exception("Failed to initialize tokenizer with path '" + _TokenizerPath + "'.");
+                }
+                Native.SyncS2TokenizerConfigFromS2Model(ModelHandle, TokenizerHandle);
+
+                DummyPipeline = Native.AllocS2Pipeline();
+                if (Native.InitializeS2Pipeline(DummyPipeline, TokenizerHandle, ModelHandle, AudioCodecHandle) != 1)
+                {
+                    throw new System.Exception("Failed to initialize pipeline.");
+                }
             }
         }
         ~FishModel()
@@ -158,192 +178,192 @@
         {
             if (!IsDisposed)
             {
-                Native.ReleaseS2Model(ModelHandle);
+                unsafe
+                {
+                    Native.ReleaseS2Pipeline(DummyPipeline);
+                    Native.ReleaseS2Tokenizer(TokenizerHandle);
+                    Native.ReleaseS2Model(ModelHandle);
+                    Native.ReleaseS2AudioCodec(AudioCodecHandle);
+                }
                 IsDisposed = true;
             }
         }
     }
-    public unsafe class FishTokenizer
+    public class FishAudioParameters
     {
-        public string TokenizerPath { get { return _TokenizerPath; } }
+        public int MaxTokens { get { return _max_new_tokens; } set { _max_new_tokens = value; OnParamUpate(); } }
+        public float Temp { get { return _temperature; } set { _temperature = value; OnParamUpate(); } }
+        public float Top_P { get { return _top_p; } set { _top_p = value; OnParamUpate(); } }
+        public int Top_K { get { return _top_k; } set { _top_k = value; OnParamUpate(); } }
+        public int MinTokensBeforeEnd { get { return _min_tokens_before_end; } set { _min_tokens_before_end = value; OnParamUpate(); } }
+        public int ThreadCount { get { return _n_threads; } set { _n_threads = value; OnParamUpate(); } }
+        public bool Verbose { get { return _verbose; } set { _verbose = value; OnParamUpate(); } }
 
-        private bool IsDisposed;
-        private string _TokenizerPath;
-        internal void* TokenizerHandle;
+        private float _temperature, _top_p;
+        private int _max_new_tokens, _top_k, _min_tokens_before_end, _n_threads;
+        private bool _verbose;
 
-        //Constructors:
-        public FishTokenizer(string TokenizerPath)
-        {
-            _TokenizerPath = TokenizerPath;
-
-            TokenizerHandle = Native.AllocS2Tokenizer();
-            if (Native.InitializeS2Tokenizer(TokenizerHandle, _TokenizerPath) != 1)
-            {
-                throw new System.Exception("Failed to initialize tokenizer with path '" + _TokenizerPath + "'.");
-            }
-        }
-        ~FishTokenizer()
-        {
-            Dispose();
-        }
-
-        //Public Methods:
-        public void Dispose()
-        {
-            if (!IsDisposed)
-            {
-                Native.ReleaseS2Tokenizer(TokenizerHandle);
-                IsDisposed = true;
-            }
-        }
-    }
-    public unsafe class FishAudioCodec
-    {
-        public int DeviceID { get { return _DeviceID; } }
-        public GPUBackendTypes Backend { get { return _BackendType; } }
-        public string ModelPath { get { return _ModelPath; } }
-
-        private int _DeviceID;
-        private bool IsDisposed;
-        private string _ModelPath;
-        internal void* AudioCodecHandle;
-        private GPUBackendTypes _BackendType;
-
-        //Constructors:
-        public FishAudioCodec(string ModelPath, GPUBackendTypes BackendType, int DeviceID = 0)
-        {
-            _ModelPath = ModelPath; _BackendType = BackendType; _DeviceID = (BackendType == GPUBackendTypes.CPU ? -1 : DeviceID);
-            AudioCodecHandle = Native.AllocS2AudioCodec();
-            if (Native.InitializeS2AudioCodec(AudioCodecHandle, ModelPath, _DeviceID, BackendType) != 1)
-            {
-                throw new System.Exception("Failed to initialize AudioCodec with " + BackendType.ToString() + " support.");
-            }
-        }
-        ~FishAudioCodec()
-        {
-            Dispose();
-        }
-
-        //Public Methods:
-        public void Dispose()
-        {
-            if (!IsDisposed)
-            {
-                Native.ReleaseS2AudioCodec(AudioCodecHandle);
-                IsDisposed = true;
-            }
-        }
-    }
-    public unsafe class FishAudioBuffer
-    {
-        private bool IsDisposed;
-        internal void* AudioBufferHandle;
-
-        //Constructors:
-        public FishAudioBuffer()
-        {
-            AudioBufferHandle = Native.AllocS2AudioBuffer();
-        }
-        ~FishAudioBuffer()
-        {
-            Dispose();
-        }
-
-        //Public Methods:
-        public void Dispose()
-        {
-            if (!IsDisposed)
-            {
-                Native.ReleaseS2AudioBuffer(AudioBufferHandle);
-                IsDisposed = true;
-            }
-        }
-        public float* GetRawAudioBuffer()
-        {
-            return IsDisposed ? null : Native.GetS2AudioBufferDataPointer(AudioBufferHandle);
-        }
-    }
-    public unsafe class FishAudioParameters
-    {
-        internal void* GenerateParams;
+        internal unsafe void* GenerateParams;
         private bool IsDisposed;
 
         //Constructor:
-        public FishAudioParameters(int max_new_tokens = -1, float temperature = -1, float top_p = -1, int top_k = -1, int min_tokens_before_end = -1, int n_threads = -1, int verbose = -1)
+        public FishAudioParameters()
         {
-            GenerateParams = Native.AllocS2GenerateParams();
-            Native.InitializeS2GenerateParams(GenerateParams, max_new_tokens, temperature, top_p, top_k, min_tokens_before_end, n_threads, verbose);
+            unsafe
+            {
+                GenerateParams = Native.AllocS2GenerateParams();
+
+                _max_new_tokens = 1024;
+                _temperature = 0.8f;
+                _top_p = 0.8f;
+                _top_k = 30;
+                _min_tokens_before_end = 0;
+                _n_threads = 0;
+                _verbose = true;
+            }
+            OnParamUpate();
         }
         ~FishAudioParameters()
         {
             Dispose();
         }
 
+        //Internal Methods:
+        private void OnParamUpate()
+        {
+            if (IsDisposed) { throw new System.ObjectDisposedException("FishAudioParameters"); }
+            unsafe
+            {
+                Native.InitializeS2GenerateParams(GenerateParams, _max_new_tokens, _temperature, _top_p, _top_k, _min_tokens_before_end, _n_threads, _verbose ? 1 : 0);
+            }
+        }
+
         //Public Methods:
         public void Dispose()
         {
             if (!IsDisposed)
             {
-                Native.ReleaseS2GenerateParams(GenerateParams);
+                unsafe
+                {
+                    Native.ReleaseS2GenerateParams(GenerateParams);
+                }
                 IsDisposed = true;
             }
         }
     }
-
-    public unsafe class FishS2Client
+    public class FishAudioVoiceReference
     {
-        public struct AudioReference
+        public string Name { get { return _Name; } }
+        public string VoiceTranscript { get { return _VoiceTranscript; } }
+        public FishModel BindedModel { get { return _Model; } }
+
+        internal int TPrompt;
+        private FishModel _Model;
+        internal unsafe void* Reference;
+        private string _Name, _VoiceTranscript;
+
+        //Constructor
+        public FishAudioVoiceReference(FishModel Model, string Name, string Mp3WavFileName, string VoiceTranscript)
         {
-            internal void* Reference;
-            internal int TPrompt;
-            public string Name, Transcript;
-            public AudioReference(string Name, string Transcript, void* Reference, int TPrompt) { this.Name = Name; this.Transcript = Transcript; this.Reference = Reference; this.TPrompt = TPrompt; }
+            this._Name = Name; this._VoiceTranscript = VoiceTranscript; _Model = Model;
+
+            unsafe
+            {
+                Reference = Native.AllocS2AudioPromptCodes(); TPrompt = 0;
+                fixed (int* _TPrompt = &TPrompt)
+                {
+                    if (Native.InitializeAudioPromptCodes(Model.DummyPipeline, System.Environment.ProcessorCount, Mp3WavFileName, Reference, _TPrompt) != 1)
+                    {
+                        throw new System.Exception("Failed to create reference voice.");
+                    }
+                }
+            }
+        }
+        ~FishAudioVoiceReference()
+        {
+            Dispose();
+        }
+
+        //Public Methods:
+        public void Dispose()
+        {
+            unsafe
+            {
+                Native.ReleaseS2AudioPromptCodes(Reference);
+            }
+        }
+    }
+
+    public class FishS2Client
+    {
+        private class FishAudioBuffer
+        {
+            public int SampleCount { get { return _SampleCount; } }
+            public int BufferCapacity { get { return _BufferCapacity; } }
+            public unsafe float* AudioSampleHandle { get { return Native.GetS2AudioBufferDataPointer(AudioBufferHandle); } }
+
+            internal int _SampleCount, _BufferCapacity;
+            internal unsafe void* AudioBufferHandle;
+            private bool IsDisposed;
+
+            //Constructors:
+            internal FishAudioBuffer()
+            {
+                unsafe
+                {
+                    AudioBufferHandle = Native.AllocS2AudioBuffer();
+                }
+            }
+            ~FishAudioBuffer()
+            {
+                Dispose();
+            }
+
+            //Public Methods:
+            public void Dispose()
+            {
+                if (!IsDisposed)
+                {
+                    unsafe
+                    {
+                        Native.ReleaseS2AudioBuffer(AudioBufferHandle);
+                    }
+                    IsDisposed = true;
+                }
+            }
         }
 
         public FishModel Model { get { return _Model; } }
-        public FishTokenizer Tokenizer { get { return _Tokenizer; } }
-        public FishAudioCodec AudioCodec { get { return _AudioCodec; } }
 
         private FishModel _Model;
-        private FishTokenizer _Tokenizer;
-        private FishAudioCodec _AudioCodec;
         private FishAudioBuffer AudioBuffer;
-        private void* Pipeline;
-        private bool IsDispose;
-        private AudioReference DefaultVoiceReference;
-        private System.Collections.Generic.Dictionary<string, AudioReference> AudioReferences;
+
+        private unsafe void* Pipeline;
+        private bool IsDisposed;
 
         //Constructors:
-        public FishS2Client(FishModel Model, FishTokenizer Tokenizer)
+        public FishS2Client(FishModel Model)
         {
-            _Model = Model;
-            _AudioCodec = new FishAudioCodec(_Model.ModelPath, GPUBackendTypes.CPU, 0); //For now.
-            _Tokenizer = Tokenizer;
-            AudioBuffer = new FishAudioBuffer();
-            DefaultVoiceReference.Reference = Native.AllocS2AudioPromptCodes(); DefaultVoiceReference.Transcript = "";
-            AudioReferences = new System.Collections.Generic.Dictionary<string, AudioReference>(2);
-
-            Pipeline = Native.AllocS2Pipeline();
-            Native.SyncS2TokenizerConfigFromS2Model(_Model.ModelHandle, _Tokenizer.TokenizerHandle);
-            if (Native.InitializeS2Pipeline(Pipeline, _Tokenizer.TokenizerHandle, _Model.ModelHandle, _AudioCodec.AudioCodecHandle) != 1)
+            _Model = Model; AudioBuffer = new FishAudioBuffer();
+            unsafe
             {
-                throw new System.Exception("Failed to initialize pipeline.");
+                Pipeline = Native.AllocS2Pipeline();
+                if (Native.InitializeS2Pipeline(Pipeline, _Model.TokenizerHandle, _Model.ModelHandle, _Model.AudioCodecHandle) != 1)
+                {
+                    throw new System.Exception("Failed to initialize pipeline.");
+                }
             }
         }
         public FishS2Client(string ModelPath, string TokenizerPath, GPUBackendTypes BackendType, int DeviceID = 0)
         {
-            _Model = new FishModel(ModelPath, BackendType, DeviceID);
-            _AudioCodec = new FishAudioCodec(ModelPath, GPUBackendTypes.CPU, 0); //For now.
-            _Tokenizer = new FishTokenizer(TokenizerPath);
-            AudioBuffer = new FishAudioBuffer();
-            DefaultVoiceReference.Reference = Native.AllocS2AudioPromptCodes(); DefaultVoiceReference.Transcript = "";
-            AudioReferences = new System.Collections.Generic.Dictionary<string, AudioReference>(2);
-
-            Pipeline = Native.AllocS2Pipeline();
-            Native.SyncS2TokenizerConfigFromS2Model(_Model.ModelHandle, _Tokenizer.TokenizerHandle);
-            if (Native.InitializeS2Pipeline(Pipeline, _Tokenizer.TokenizerHandle, _Model.ModelHandle, _AudioCodec.AudioCodecHandle) != 1)
+            _Model = new FishModel(ModelPath, TokenizerPath, BackendType, DeviceID); AudioBuffer = new FishAudioBuffer();
+            unsafe
             {
-                throw new System.Exception("Failed to initialize pipeline.");
+                Pipeline = Native.AllocS2Pipeline();
+                if (Native.InitializeS2Pipeline(Pipeline, _Model.TokenizerHandle, _Model.ModelHandle, _Model.AudioCodecHandle) != 1)
+                {
+                    throw new System.Exception("Failed to initialize pipeline.");
+                }
             }
         }
         ~FishS2Client()
@@ -352,54 +372,36 @@
         }
 
         //Public Methods:
-        public void Dispose(bool DisposeModel = true, bool DisposeTokenizer = true)
+        public void Dispose(bool DisposeModel = true)
         {
-            if (!IsDispose)
+            if (!IsDisposed)
             {
-                Native.ReleaseS2AudioPromptCodes(DefaultVoiceReference.Reference);
-                var Enum = AudioReferences.GetEnumerator();
-                while (Enum.MoveNext())
-                {
-                    Native.ReleaseS2AudioPromptCodes(Enum.Current.Value.Reference);
-                }
-                Enum.Dispose();
-                AudioReferences.Clear();
-
-                Native.ReleaseS2Pipeline(Pipeline);
                 AudioBuffer.Dispose();
-                _AudioCodec.Dispose();
-                if (DisposeTokenizer) { _Tokenizer.Dispose(); }
+                unsafe
+                {
+                    Native.ReleaseS2Pipeline(Pipeline);
+                }
                 if (DisposeModel) { _Model.Dispose(); }
-                IsDispose = true;
+                IsDisposed = true;
             }
         }
 
-        public bool RegisterVoiceReference(string ReferenceName, string Mp3WavFileName, string AudioTranscript, out AudioReference Reference)
+        public void Synthesize(string Text, string OutputWavFilename, FishAudioParameters Parameters, FishAudioVoiceReference Voice = null)
         {
-            AudioReference ARef = new AudioReference(ReferenceName, AudioTranscript, Native.AllocS2AudioPromptCodes(), 0);
-            if (Native.InitializeAudioPromptCodes(Pipeline, System.Environment.ProcessorCount, Mp3WavFileName, ARef.Reference, &ARef.TPrompt) != 1)
+            if (IsDisposed) { throw new System.ObjectDisposedException("FishS2Client"); }
+
+            int OutputBufferLength = 0, ErrorCode = -1;
+            unsafe
             {
-                throw new System.Exception("Failed to register reference voice.");
+                if (Voice != null)
+                {
+                    fixed (int* _TPrompt = &Voice.TPrompt)
+                    {
+                        ErrorCode = Native.S2Synthesize(Pipeline, Parameters.GenerateParams, AudioBuffer.AudioBufferHandle, Voice.Reference, _TPrompt, null, Voice.VoiceTranscript, Text, OutputWavFilename, &OutputBufferLength);
+                    }
+                }
+                else { ErrorCode = Native.S2Synthesize(Pipeline, Parameters.GenerateParams, AudioBuffer.AudioBufferHandle, null, null, null, null, Text, OutputWavFilename, &OutputBufferLength); }
             }
-            if (!AudioReferences.TryAdd(ReferenceName, ARef))
-            {
-                Reference = default;
-                Native.ReleaseS2AudioPromptCodes(ARef.Reference);
-                return false;
-            }
-            Reference = ARef;
-            return true;
-        }
-        public AudioReference GetVoiceReference(string ReferenceName)
-        {
-            return AudioReferences[ReferenceName];
-        }
-
-        public void Synthesize(string Text, string OutputWavFilename, FishAudioParameters Parameters, AudioReference VoiceReference = default)
-        {
-            if (VoiceReference.Name == null) { VoiceReference = DefaultVoiceReference; }
-
-            int OutputBufferLength = 0, ErrorCode = Native.S2Synthesize(Pipeline, Parameters.GenerateParams, AudioBuffer.AudioBufferHandle, VoiceReference.Reference, &VoiceReference.TPrompt, null, VoiceReference.Transcript, Text, OutputWavFilename, &OutputBufferLength);
 
             switch (ErrorCode)
             {
@@ -410,13 +412,28 @@
                 case -4: { throw new System.Exception("[Pipeline Error]: generation produced no frames."); }
                 case -5: { throw new System.Exception("[Pipeline Error]: decode failed."); }
                 case -6: { throw new System.Exception("[Pipeline Error]: save_audio failed."); }
+                case -7: { throw new System.Exception("[Pipeline Error]: reference voice is missing transcript text."); }
+                case -8: { throw new System.Exception("[Pipeline Error]: reference voice TPrompt value is 0."); }
             }
-        }
-        public int Synthesize(string Text, float* RawAudioOutput, FishAudioParameters Parameters, AudioReference VoiceReference = default)
-        {
-            if (VoiceReference.Name == null) { VoiceReference = DefaultVoiceReference; }
 
-            int OutputBufferLength = 0, ErrorCode = Native.S2Synthesize(Pipeline, Parameters.GenerateParams, AudioBuffer.AudioBufferHandle, VoiceReference.Reference, &VoiceReference.TPrompt, null, VoiceReference.Transcript, Text, null, &OutputBufferLength);
+            AudioBuffer._BufferCapacity = AudioBuffer._BufferCapacity < OutputBufferLength ? OutputBufferLength : AudioBuffer._BufferCapacity;
+        }
+        public unsafe int Synthesize(string Text, float* RawAudioOutput, FishAudioParameters Parameters, FishAudioVoiceReference Voice = null)
+        {
+            if (IsDisposed) { throw new System.ObjectDisposedException("FishS2Client"); }
+
+            int OutputBufferLength = 0, ErrorCode = -1;
+            unsafe
+            {
+                if (Voice != null)
+                {
+                    fixed (int* _TPrompt = &Voice.TPrompt)
+                    {
+                        ErrorCode = Native.S2Synthesize(Pipeline, Parameters.GenerateParams, AudioBuffer.AudioBufferHandle, Voice.Reference, _TPrompt, null, Voice.VoiceTranscript, Text, null, &OutputBufferLength);
+                    }
+                }
+                else { ErrorCode = Native.S2Synthesize(Pipeline, Parameters.GenerateParams, AudioBuffer.AudioBufferHandle, null, null, null, null, Text, null, &OutputBufferLength); }
+            }
 
             switch (ErrorCode)
             {
@@ -427,16 +444,30 @@
                 case -4: { throw new System.Exception("[Pipeline Error]: generation produced no frames."); }
                 case -5: { throw new System.Exception("[Pipeline Error]: decode failed."); }
                 case -6: { throw new System.Exception("[Pipeline Error]: save_audio failed."); }
+                case -7: { throw new System.Exception("[Pipeline Error]: reference voice is missing transcript text."); }
+                case -8: { throw new System.Exception("[Pipeline Error]: reference voice TPrompt value is 0."); }
             }
 
-            RawAudioOutput = AudioBuffer.GetRawAudioBuffer();
+            RawAudioOutput = AudioBuffer.AudioSampleHandle;
+            AudioBuffer._BufferCapacity = AudioBuffer._BufferCapacity < OutputBufferLength ? OutputBufferLength : AudioBuffer._BufferCapacity;
             return OutputBufferLength;
         }
-        public int Synthesize(string Text, string OutputWavFilename, float* RawAudioOutput, FishAudioParameters Parameters, AudioReference VoiceReference = default)
+        public unsafe int Synthesize(string Text, string OutputWavFilename, float* RawAudioOutput, FishAudioParameters Parameters, FishAudioVoiceReference Voice = null)
         {
-            if (VoiceReference.Name == null) { VoiceReference = DefaultVoiceReference; }
+            if (IsDisposed) { throw new System.ObjectDisposedException("FishS2Client"); }
 
-            int OutputBufferLength = 0, ErrorCode = Native.S2Synthesize(Pipeline, Parameters.GenerateParams, AudioBuffer.AudioBufferHandle, VoiceReference.Reference, &VoiceReference.TPrompt, null, VoiceReference.Transcript, Text, OutputWavFilename, &OutputBufferLength);
+            int OutputBufferLength = 0, ErrorCode = -1;
+            unsafe
+            {
+                if (Voice != null)
+                {
+                    fixed (int* _TPrompt = &Voice.TPrompt)
+                    {
+                        ErrorCode = Native.S2Synthesize(Pipeline, Parameters.GenerateParams, AudioBuffer.AudioBufferHandle, Voice.Reference, _TPrompt, null, Voice.VoiceTranscript, Text, OutputWavFilename, &OutputBufferLength);
+                    }
+                }
+                else { ErrorCode = Native.S2Synthesize(Pipeline, Parameters.GenerateParams, AudioBuffer.AudioBufferHandle, null, null, null, null, Text, OutputWavFilename, &OutputBufferLength); }
+            }
 
             switch (ErrorCode)
             {
@@ -447,9 +478,12 @@
                 case -4: { throw new System.Exception("[Pipeline Error]: generation produced no frames."); }
                 case -5: { throw new System.Exception("[Pipeline Error]: decode failed."); }
                 case -6: { throw new System.Exception("[Pipeline Error]: save_audio failed."); }
+                case -7: { throw new System.Exception("[Pipeline Error]: reference voice is missing transcript text."); }
+                case -8: { throw new System.Exception("[Pipeline Error]: reference voice TPrompt value is 0."); }
             }
 
-            RawAudioOutput = AudioBuffer.GetRawAudioBuffer();
+            RawAudioOutput = AudioBuffer.AudioSampleHandle;
+            AudioBuffer._BufferCapacity = AudioBuffer._BufferCapacity < OutputBufferLength ? OutputBufferLength : AudioBuffer._BufferCapacity;
             return OutputBufferLength;
         }
     }

@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2012/06/nuspec.xsd">
+  <metadata>
+    <id>FishS2Sharp</id>
+    <version>1.0.0</version>
+    <title>FishS2Sharp</title>
+    <authors>FishS2Sharp</authors>
+    <description>Package Description</description>
+    <repository type="git" commit="500d336167e7176a906a71a7a63359d77eba394e" />
+    <dependencies>
+      <group targetFramework=".NETStandard2.1" />
+    </dependencies>
+  </metadata>
+  <files>
+    <file src="C:\My Storage\My Projects\GIT\FishS2Sharp\FishS2Sharp\FishS2Sharp\bin\x64\Release\netstandard2.1\FishS2Sharp.dll" target="lib\netstandard2.1\FishS2Sharp.dll" />
+  </files>
+</package>
