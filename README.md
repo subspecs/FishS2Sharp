@@ -21,7 +21,7 @@ GGUF files are available at [rodrigomt/s2-pro-gguf](https://huggingface.co/rodri
 | File | Size | Notes |
 |---|---|---|
 | `s2-pro-f16.gguf` | 9.9 GB | Full precision — reference quality |
-| `s2-pro-q8_0.gguf` | 5.6 GB | Near-lossless — recommended for 8+ GB VRAM |
+| `s2-pro-q8_0.gguf` | 5.6 GB | Near-lossless — model weights use ~5 GB VRAM after the duplicate-load fix; full runtime usage is higher |
 | `s2-pro-q6_k.gguf` | 4.5 GB | Good quality/size balance — recommended for 6+ GB VRAM |
 | `s2-pro-q5_k_m.gguf` | 4.0 GB | Smaller with still-good quality |
 | `s2-pro-q4_k_m.gguf` | 3.6 GB | Best compact variant so far in quick RU validation |
@@ -37,25 +37,47 @@ internal class Program
 {
     static void Main(string[] args)
     {
-        const string SomeLocation = @"C:\Users\SubSpecs\Desktop\s2.cpp-main\build\bin\RelWithDebInfo\";
+            string ModelFileName = "s2-pro-q4_k_m.gguf";
+            string ModelFolder = "D:\\AI Models\\FishModels\\";
+            string VoiceFolderDir = "";
 
-        //Create an FishS2Client instance. (You can have as many as you want, models/tokenizers can be shared across instances)
-        FishS2Sharp.FishS2Client Instance = new FishS2Sharp.FishS2Client(SomeLocation + "s2 - pro-q8_0.gguf", SomeLocation + "tokenizer.json", FishS2Sharp.GPUBackendTypes.Cuda);
 
-        //(Optional) Register a reference voice with some transcript of what is said in said sample. Wav/mp3's currently onyl supported. (10-20s samples recommended.)
-        Instance.RegisterVoiceReference("Mortal Combat", SomeLocation + "2.mp3", "Raiden! Shang Tsung! Kitana! Choose your destiny! Johnny Cage! Sonya Blade! Kano! Jax! " +
-                "Round One... FIGHT! Finish Him! FATALITY! Flawless Victory!", out _);
+            System.Console.WriteLine("Loading Model...");
 
-        //Create some pipeline settings.
-        FishS2Sharp.FishAudioParameters PipelineParameters = new FishS2Sharp.FishAudioParameters(/*int max_new_tokens = -1, float temperature = -1, float top_p = -1...*/);
+            //First we load a shared model instance. This instance can be re-used in multiple FishS2Client instances.
+            FishS2Sharp.FishModel SharedModel = new FishS2Sharp.FishModel(ModelFolder + ModelFileName, ModelFolder + "tokenizer.json", FishS2Sharp.GPUBackendTypes.Cuda);
 
-        //Synthesize text to voice:
-        System.Diagnostics.Stopwatch Timer = new System.Diagnostics.Stopwatch(); Timer.Start();
-        Instance.Synthesize("My name is Jeff and england is my city!", "D:\\Jeff.wav", PipelineParameters, Instance.GetVoiceReference("Mortal Combat"));
-        Timer.Stop(); System.Console.WriteLine("Generation Time: " + Timer.Elapsed.TotalSeconds.ToString("0.000") + "s");
+            System.Console.WriteLine("Done Loading Model!");
 
-        //Cleanup this sample code.
-        Instance.Dispose();
+
+            System.Console.WriteLine("Generating Voice...");
+
+            //You can create re-usable instances of cloned voices. All you need is a 10-15s voice sample, and you need a transcript of what is spoken in the voice sample.
+            //Just don't mix/match different VoiceReference's generated from one type of model and run inference/synthesize with another. 
+            FishS2Sharp.FishAudioVoiceReference VoiceReference = new FishS2Sharp.FishAudioVoiceReference(SharedModel, "Mortal Combat Voice", VoiceFolderDir + "2.mp3",
+                "Raiden! Shang Tsung! Kitana! Choose your destiny! Johnny Cage! Sonya Blade! Kano! Jax! Round One... FIGHT! Finish Him! FATALITY! Flawless Victory!");
+
+            System.Console.WriteLine("Done Generating Voice!");
+
+
+            //Create an FishS2Client instance. These are NOT thread safe, so you should use your own locking mechanism.
+            //If you need multithreaded processing, use a new FishS2Client instance per thread.
+            FishS2Sharp.FishS2Client Instance = new FishS2Sharp.FishS2Client(SharedModel);
+
+            //Create default pipeline settings. You can change settings inside it like TopK/P, Temp, MaxTokens etc..
+            FishS2Sharp.FishAudioParameters PipelineParameters = new FishS2Sharp.FishAudioParameters() { Temp = 0.8f };
+
+
+            //Finally, we synthesize our chosen text to our specific(but optional) voice:
+            System.Console.WriteLine("Generating TTS...");
+
+            System.Diagnostics.Stopwatch Timer = new System.Diagnostics.Stopwatch(); Timer.Start();
+            Instance.Synthesize("My name is Jeff and england is my city!", "D:\\Jeff.wav", PipelineParameters, VoiceReference);
+
+            Timer.Stop(); System.Console.WriteLine("Generation Time: " + Timer.Elapsed.TotalSeconds.ToString("0.000") + "s"); Timer.Reset();
+
+            //Cleanup this sample code.
+            Instance.Dispose();
     }
 }
 ```
